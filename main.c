@@ -29,7 +29,9 @@ extern const unsigned short _usPIDP;
 extern const unsigned short _usPIDO;
 extern int whichdongle;
 
-void print_list(void)
+static int machine = 0;
+
+int print_list(void)
 {
     // based on code from fcd.c
     struct hid_device_info *phdi=NULL;
@@ -45,7 +47,7 @@ void print_list(void)
     if (phdi==NULL)
     {
         puts("No FCD found.\n");
-        return;
+        return 1;
     }
 
     puts("  nr   USB path       firmware   frequency         LNA gain   audio device");
@@ -100,6 +102,7 @@ void print_list(void)
         phdi = phdi->next;
     }
     hid_free_enumeration(phdi);
+	return 0;
 }
 
 
@@ -120,10 +123,11 @@ void print_help()
     printf("  -d, --dump <file>      Saves existing FCD firmware to <file>\n");
     printf("  -u, --update <file>    Updates FCD firmware from <file>\n");
     printf("  -i, --index <index>    Which dongle to show/set (default: 0)\n");
+	printf("  -m  --machine          Print machine readable output\n");
     printf("  -h, --help             Shows this help\n");
 }
 
-void print_status()
+int print_status()
 {
     FCD_MODE_ENUM stat;
     FCD_VERSION_ENUM hwvr;
@@ -146,35 +150,40 @@ void print_status()
     if (stat == FCD_MODE_NONE)
     {
         printf("No FCD Detected.\n");
-        return;
+        return 1;
     }
     else if (stat == FCD_MODE_BL)
     {
-        printf("FCD present in bootloader mode.\n");
-        printf("FCD hardware version: %s.\n", hwstr);
+        if (!machine) printf("FCD present in bootloader mode.\n");
+        if (!machine) printf("FCD hardware version: %s.\n", hwstr);
         stat = fcdGetDeviceInfo(info);
-        if (FCD_MODE_BL == stat)
-            printf("FCD device info bytes: %02x %02x %02x %02x\n", info[0], info[1], info[2], info[3]);
-        else
+        if (FCD_MODE_BL == stat) {
+            if (!machine) printf("FCD device info bytes: %02x %02x %02x %02x\n", info[0], info[1], info[2], info[3]);
+		} else {
             printf("Unable to read device info bytes\n");
-        return;
+			return 1;
+		}
+		if (machine) printf("OK STAT BL %s INFO %02x %02x %02x %02x\n", hwstr, info[0], info[1], info[2], info[3]);
     }
     else	
     {
-        printf("FCD present in application mode.\n");
+        if (!machine) printf("FCD present in application mode.\n");
         stat = fcdGetFwVerStr(version);
-        printf("FCD hardware version: %s.\n", hwstr);
-        printf("FCD firmware version: %s.\n", version);
+        if (!machine) printf("FCD hardware version: %s.\n", hwstr);
+        if (!machine) printf("FCD firmware version: %s.\n", version);
         unsigned char b[8];
         stat = fcdAppGetParam(FCD_CMD_APP_GET_FREQ_HZ,b,8);
-        printf("FCD frequency: %.6f MHz.\n", (*(int *)b)/1e6);
+		int freq = *((int*)b);
+        if (!machine) printf("FCD frequency: %.6f MHz.\n", freq/1e6);
         stat = fcdAppGetParam(FCD_CMD_APP_GET_LNA_GAIN,b,1);
-        if (FCD_VERSION_2 == hwvr)
-            printf("FCD LNA gain: %s.\n", b[0] == 1 ? "enabled" : "disabled");
-        else
-            printf("FCD LNA gain: %g dB.\n", lnagainvalues[b[0]]);
-        return;
+        if (FCD_VERSION_2 == hwvr) {
+            if (!machine) printf("FCD LNA gain: %s.\n", b[0] == 1 ? "enabled" : "disabled");
+		} else {
+            if (!machine) printf("FCD LNA gain: %g dB.\n", lnagainvalues[b[0]]);
+		}
+		if (machine) printf("OK APP %s FREQ %d VER %s\n", hwstr, freq, version);
     }
+    return 0;
 }
 
 FCD_API_CALL void progress(uint32_t start, uint32_t end, uint32_t position, int err)
@@ -185,40 +194,46 @@ FCD_API_CALL void progress(uint32_t start, uint32_t end, uint32_t position, int 
     fflush(stdout);
 }
 
-void update_firm(char *firm)
+int update_firm(char *firm)
 {
     int stat;
     long fwsiz;
     FILE *fp = NULL;
     char *fwbuf = NULL, resp[10];
+	int rv = 0;
 
     fp = fopen(firm, "rb");
     if (!fp)
     {
         printf("Unable to open firmware file: %s\n", firm);
+		rv = 1;
         goto done;
     }
     stat = fseek(fp, 0, SEEK_END);
     if (stat)
     {
         printf("Unable to seek to end of firmware\n");
+		rv = 1;
         goto done;
     }
     fwsiz = ftell(fp);
     if (fwsiz<0)
     {
         printf("Unable to read firmware size\n");
+		rv = 1;
         goto done;
     }
     fwbuf = malloc(fwsiz);
     if (!fwbuf)
     {
         printf("Unable to allocate memory for firmware buffer\n");
+		rv = 1;
         goto done;
     }
     if (fseek(fp, SEEK_SET, 0)<0 || fread(fwbuf, fwsiz, 1, fp)!=1)
     {
         printf("Unable to read firmware into buffer\n");
+		rv = 1;
         goto done;
     }
     fclose(fp);
@@ -229,6 +244,7 @@ void update_firm(char *firm)
     if (stat == FCD_MODE_NONE)
     {
         printf("No FCD Detected.\n");
+		rv = 1;
     }
     else if (stat == FCD_MODE_APP)
     {
@@ -248,6 +264,7 @@ void update_firm(char *firm)
             if (stat != FCD_MODE_BL)
             {
                 printf("Unable to erase existing firmware.\n");
+				rv = 1;
                 goto done;
             }
             printf("writing..\n");
@@ -255,6 +272,7 @@ void update_firm(char *firm)
             if (stat != FCD_MODE_BL)
             {
                 printf("Unable to write firmware to FCD.\n");
+				rv = 1;
                 goto done;
             }
         }
@@ -263,6 +281,7 @@ void update_firm(char *firm)
         if (stat != FCD_MODE_BL)
         {
                 printf("Unable to verify firmware on FCD.\n");
+				rv = 1;
                 goto done;
         }
         printf("\ndone.\n");
@@ -270,21 +289,24 @@ void update_firm(char *firm)
 done:
     if (fwbuf) free(fwbuf);
     if (fp) fclose(fp);
+	return rv;
 }
 
-void dump_firm(char *dump)
+int dump_firm(char *dump)
 {
     int stat;
     FILE *saveFile = fopen(dump, "wb");
     if (!saveFile)
     {
         printf("Unable to open dump file: %s\n", dump);
-        return;
+        return 1;
     }
+	int rv = 0;
     stat = fcdGetMode();
     if (stat == FCD_MODE_NONE)
     {
         printf("No FCD detected.\n");
+		rv = 1;
     }
     else if (stat == FCD_MODE_APP)
     {
@@ -297,18 +319,22 @@ void dump_firm(char *dump)
         stat = fcdBlSaveFirmwareProg(saveFile, progress);
         if (stat == FCD_MODE_BL)
             printf("Firmware saved to: %s, FCD remains in bootloader mode (use -r to reset).\n", dump);
-        else
+        else {
             printf("Unable to save firmware to: %s, (is it writeable?)\n", dump);
+			rv = 1;
+		}
     }
     fclose(saveFile);
+	return rv;
 }
 
-void reset_fcd()
+int reset_fcd()
 {
     int stat = fcdGetMode();
     if (stat == FCD_MODE_NONE)
     {
         printf("No FCD detected.\n");
+		return 1;
     }
     else if (stat == FCD_MODE_APP)
     {
@@ -321,6 +347,7 @@ void reset_fcd()
         fcdBlReset();
     }
     printf("Reset completed, please check /var/log/[message|syslog] to confirm.\n");
+	return 0;
 }
 
 int main(int argc, char* argv[])
@@ -338,7 +365,7 @@ int main(int argc, char* argv[])
 
     /* getopt infrastructure */
     int next_option;
-    const char* const short_options = "slrg:f:c:i:d:u:h";
+    const char* const short_options = "slrmg:f:c:i:d:u:h";
     const struct option long_options[] =
     {
         { "status", 0, NULL, 's' },
@@ -350,6 +377,7 @@ int main(int argc, char* argv[])
         { "correction", 1, NULL, 'c' },
         { "dump", 1, NULL, 'd' },
         { "update", 1, NULL, 'u' },
+        { "machine", 0, NULL, 'm' },
         { "help", 0, NULL, 'h' }
     };
 
@@ -377,6 +405,9 @@ int main(int argc, char* argv[])
             case 'h' :
                 print_help();
                 exit(EXIT_SUCCESS);
+            case 'm' :
+                machine=1;
+                break;
             case 's' :
                 dostatus=1;
                 break;
@@ -433,7 +464,10 @@ int main(int argc, char* argv[])
         }
         else	
         {
-            printf("Freq set to %.6f MHz.\n", freq/1e6);
+			if (machine)
+				printf("OK FREQ %d\n", freq);
+			else
+            	printf("Freq set to %.6f MHz.\n", freq/1e6);
         }
     }
 
@@ -454,15 +488,17 @@ int main(int argc, char* argv[])
             printf("LNA gain set to %g dB.\n",lnagainvalues[b]);
     }
 
-    if (dump) dump_firm(dump);
+	int rv = 0;
 
-    if (firm) update_firm(firm);
+    if (dump) rv=dump_firm(dump);
 
-    if (dolist) print_list();
+    if (firm) rv=update_firm(firm);
 
-    if (dostatus) print_status();
+    if (dolist) rv=print_list();
 
-    if (doreset) reset_fcd();
+    if (dostatus) rv=print_status();
 
-    return EXIT_SUCCESS;
+    if (doreset) rv=reset_fcd();
+
+    return rv;
 }
