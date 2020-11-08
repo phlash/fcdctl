@@ -181,7 +181,7 @@ int print_status()
 		} else {
             if (!machine) printf("FCD LNA gain: %g dB.\n", lnagainvalues[b[0]]);
 		}
-		if (machine) printf("OK APP %s FREQ %d VER %s\n", hwstr, freq, version);
+		if (machine) printf("OK STAT APP %s FREQ %d VER %s\n", hwstr, freq, version);
     }
     return 0;
 }
