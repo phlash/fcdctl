@@ -203,12 +203,10 @@ int print_status()
         printf("FCD if gain2(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
         stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN3,b,1);
         printf("FCD if gain3(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
-        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN3,b,1);
-        printf("FCD if gain3(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
-        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_FILTER,b,1);
-        printf("FCD if filter(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
         stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN4,b,1);
         printf("FCD if gain4(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_FILTER,b,1);
+        printf("FCD if filter(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
         stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN5,b,1);
         printf("FCD if gain5(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
         stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN6,b,1);
