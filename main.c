@@ -21,6 +21,7 @@
 
 // based on the #defines for TLGE_P10_0DB etc. from fcdhidcmd.h :
 double lnagainvalues[]={-5.0,-2.5,-999,-999,0,2.5,5,7.5,10,12.5,15,17.5,20,25,30};
+char *bandvalues[]={"VHF-II","VHF-III","UHF","L-Band"};
 
 #include "hidapi.h"
 extern const unsigned short _usVID;
@@ -102,7 +103,7 @@ int print_list(void)
         phdi = phdi->next;
     }
     hid_free_enumeration(phdi);
-	return 0;
+    return 0;
 }
 
 
@@ -118,12 +119,11 @@ void print_help()
     printf("  -s, --status           Gets FCD current status\n");
     printf("  -f, --frequency <freq> Sets FCD frequency in MHz\n");
     printf("  -g, --gain <gain>      Sets LNA gain in dB (V1.x) or enable/disable LNA gain [0/1] (V2.x)\n");
-    printf("  -g, --gain <gain>      Sets LNA gain in dB\n");
     printf("  -c, --correction <cor> Sets frequency correction in ppm\n");
     printf("  -d, --dump <file>      Saves existing FCD firmware to <file>\n");
     printf("  -u, --update <file>    Updates FCD firmware from <file>\n");
     printf("  -i, --index <index>    Which dongle to show/set (default: 0)\n");
-	printf("  -m  --machine          Print machine readable output\n");
+    printf("  -m  --machine          Print machine readable output\n");
     printf("  -h, --help             Shows this help\n");
 }
 
@@ -159,13 +159,13 @@ int print_status()
         stat = fcdGetDeviceInfo(info);
         if (FCD_MODE_BL == stat) {
             if (!machine) printf("FCD device info bytes: %02x %02x %02x %02x\n", info[0], info[1], info[2], info[3]);
-		} else {
+        } else {
             printf("Unable to read device info bytes\n");
-			return 1;
-		}
-		if (machine) printf("OK STAT BL %s INFO %02x %02x %02x %02x\n", hwstr, info[0], info[1], info[2], info[3]);
+            return 1;
+        }
+        if (machine) printf("OK STAT BL %s INFO %02x %02x %02x %02x\n", hwstr, info[0], info[1], info[2], info[3]);
     }
-    else	
+    else
     {
         if (!machine) printf("FCD present in application mode.\n");
         stat = fcdGetFwVerStr(version);
@@ -173,15 +173,49 @@ int print_status()
         if (!machine) printf("FCD firmware version: %s.\n", version);
         unsigned char b[8];
         stat = fcdAppGetParam(FCD_CMD_APP_GET_FREQ_HZ,b,8);
-		int freq = *((int*)b);
+        int freq = *((int*)b);
         if (!machine) printf("FCD frequency: %.6f MHz.\n", freq/1e6);
         stat = fcdAppGetParam(FCD_CMD_APP_GET_LNA_GAIN,b,1);
         if (FCD_VERSION_2 == hwvr) {
             if (!machine) printf("FCD LNA gain: %s.\n", b[0] == 1 ? "enabled" : "disabled");
-		} else {
+        } else {
             if (!machine) printf("FCD LNA gain: %g dB.\n", lnagainvalues[b[0]]);
-		}
-		if (machine) printf("OK STAT APP %s FREQ %d VER %s\n", hwstr, freq, version);
+        }
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_LNA_ENHANCE,b,1);
+        printf("FCD LNA enhance(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_BAND,b,1);
+        printf("FCD tuner band(%s): %d=>%s\n", stat==FCD_MODE_APP?"ok":"fail", b[0], b[0]<4?bandvalues[b[0]]:"undef");
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_RF_FILTER,b,1);
+        printf("FCD tuner bpf(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_MIXER_GAIN,b,1);
+        printf("FCD mixer gain(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_BIAS_CURRENT,b,1);
+        printf("FCD bias current(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_MIXER_FILTER,b,1);
+        printf("FCD mixer filter(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN1,b,1);
+        printf("FCD if gain1(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN_MODE,b,1);
+        printf("FCD if gain mode(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_RC_FILTER,b,1);
+        printf("FCD if rc filter(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN2,b,1);
+        printf("FCD if gain2(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN3,b,1);
+        printf("FCD if gain3(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN3,b,1);
+        printf("FCD if gain3(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_FILTER,b,1);
+        printf("FCD if filter(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN4,b,1);
+        printf("FCD if gain4(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN5,b,1);
+        printf("FCD if gain5(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_IF_GAIN6,b,1);
+        printf("FCD if gain6(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        stat = fcdAppGetParam(FCD_CMD_APP_GET_BIAS_TEE,b,1);
+        printf("FCD if bias tee(%s): %d\n", stat==FCD_MODE_APP?"ok":"fail", b[0]);
+        if (machine) printf("OK STAT APP %s FREQ %d VER %s\n", hwstr, freq, version);
     }
     return 0;
 }
@@ -200,40 +234,40 @@ int update_firm(char *firm)
     long fwsiz;
     FILE *fp = NULL;
     char *fwbuf = NULL, resp[10];
-	int rv = 0;
+    int rv = 0;
 
     fp = fopen(firm, "rb");
     if (!fp)
     {
         printf("Unable to open firmware file: %s\n", firm);
-		rv = 1;
+        rv = 1;
         goto done;
     }
     stat = fseek(fp, 0, SEEK_END);
     if (stat)
     {
         printf("Unable to seek to end of firmware\n");
-		rv = 1;
+        rv = 1;
         goto done;
     }
     fwsiz = ftell(fp);
     if (fwsiz<0)
     {
         printf("Unable to read firmware size\n");
-		rv = 1;
+        rv = 1;
         goto done;
     }
     fwbuf = malloc(fwsiz);
     if (!fwbuf)
     {
         printf("Unable to allocate memory for firmware buffer\n");
-		rv = 1;
+        rv = 1;
         goto done;
     }
     if (fseek(fp, SEEK_SET, 0)<0 || fread(fwbuf, fwsiz, 1, fp)!=1)
     {
         printf("Unable to read firmware into buffer\n");
-		rv = 1;
+        rv = 1;
         goto done;
     }
     fclose(fp);
@@ -244,7 +278,7 @@ int update_firm(char *firm)
     if (stat == FCD_MODE_NONE)
     {
         printf("No FCD Detected.\n");
-		rv = 1;
+        rv = 1;
     }
     else if (stat == FCD_MODE_APP)
     {
@@ -264,7 +298,7 @@ int update_firm(char *firm)
             if (stat != FCD_MODE_BL)
             {
                 printf("Unable to erase existing firmware.\n");
-				rv = 1;
+                rv = 1;
                 goto done;
             }
             printf("writing..\n");
@@ -272,7 +306,7 @@ int update_firm(char *firm)
             if (stat != FCD_MODE_BL)
             {
                 printf("Unable to write firmware to FCD.\n");
-				rv = 1;
+                rv = 1;
                 goto done;
             }
         }
@@ -281,7 +315,7 @@ int update_firm(char *firm)
         if (stat != FCD_MODE_BL)
         {
                 printf("Unable to verify firmware on FCD.\n");
-				rv = 1;
+                rv = 1;
                 goto done;
         }
         printf("\ndone.\n");
@@ -289,7 +323,7 @@ int update_firm(char *firm)
 done:
     if (fwbuf) free(fwbuf);
     if (fp) fclose(fp);
-	return rv;
+    return rv;
 }
 
 int dump_firm(char *dump)
@@ -301,12 +335,12 @@ int dump_firm(char *dump)
         printf("Unable to open dump file: %s\n", dump);
         return 1;
     }
-	int rv = 0;
+    int rv = 0;
     stat = fcdGetMode();
     if (stat == FCD_MODE_NONE)
     {
         printf("No FCD detected.\n");
-		rv = 1;
+        rv = 1;
     }
     else if (stat == FCD_MODE_APP)
     {
@@ -321,11 +355,11 @@ int dump_firm(char *dump)
             printf("Firmware saved to: %s, FCD remains in bootloader mode (use -r to reset).\n", dump);
         else {
             printf("Unable to save firmware to: %s, (is it writeable?)\n", dump);
-			rv = 1;
-		}
+            rv = 1;
+        }
     }
     fclose(saveFile);
-	return rv;
+    return rv;
 }
 
 int reset_fcd()
@@ -334,7 +368,7 @@ int reset_fcd()
     if (stat == FCD_MODE_NONE)
     {
         printf("No FCD detected.\n");
-		return 1;
+        return 1;
     }
     else if (stat == FCD_MODE_APP)
     {
@@ -347,7 +381,7 @@ int reset_fcd()
         fcdBlReset();
     }
     printf("Reset completed, please check /var/log/[message|syslog] to confirm.\n");
-	return 0;
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -440,7 +474,7 @@ int main(int argc, char* argv[])
                 exit(1);
             default :
                 abort();
-        }	
+        }
     }
 
     if (freqf>0) {
@@ -462,12 +496,12 @@ int main(int argc, char* argv[])
             printf("FCD in bootloader mode.\n");
             return 1;
         }
-        else	
+        else
         {
-			if (machine)
-				printf("OK FREQ %d\n", freq);
-			else
-            	printf("Freq set to %.6f MHz.\n", freq/1e6);
+            if (machine)
+                printf("OK FREQ %d\n", freq);
+            else
+                printf("Freq set to %.6f MHz.\n", freq/1e6);
         }
     }
 
@@ -488,7 +522,7 @@ int main(int argc, char* argv[])
             printf("LNA gain set to %g dB.\n",lnagainvalues[b]);
     }
 
-	int rv = 0;
+    int rv = 0;
 
     if (dump) rv=dump_firm(dump);
 
